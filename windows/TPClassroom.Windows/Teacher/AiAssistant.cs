@@ -29,6 +29,8 @@ sealed class AiAssistant
     readonly TeacherContext context;
     readonly List<JsonNode> history = new();
     readonly Dictionary<string, Size> screenshotSizes = new();
+    /// <summary>Computers where TP AI's pointer is showing (hidden again when TP AI is done).</summary>
+    readonly List<TeacherSession> cursorSessions = new();
 
     public AiAssistant(TeacherContext context) => this.context = context;
 
@@ -102,6 +104,18 @@ sealed class AiAssistant
             IsWorking = false;
             Changed?.Invoke();
         }
+        await Task.Delay(3000);
+        if (!IsWorking)
+        {
+            foreach (var s in cursorSessions) s.AiCursor("hide");
+            cursorSessions.Clear();
+        }
+    }
+
+    void ShowAiCursor(TeacherSession s, string action, double? x = null, double? y = null, string? text = null)
+    {
+        s.AiCursor(action, x, y, text);
+        if (!cursorSessions.Contains(s)) cursorSessions.Add(s);
     }
 
     async Task RunAsync()
@@ -476,6 +490,10 @@ sealed class AiAssistant
                     events.Add(InputEvent.Press(button, true, x, y, 2));
                     events.Add(InputEvent.Press(button, false, x, y, 2));
                 }
+                // TP AI's pointer glides there first, so everyone can see where it's going to click.
+                ShowAiCursor(s, "move", x, y);
+                await Task.Delay(650);
+                ShowAiCursor(s, "click", x, y);
                 await s.PerformAiInputAsync(events);
                 Note($"Clicked on {s.Name}");
                 await Task.Delay(700);
@@ -486,9 +504,11 @@ sealed class AiAssistant
                 var s = ResolveOne(args["computer"]);
                 if (s == null || !s.IsOnline) return ("That computer isn't online.", null);
                 var text = Text(args["text"]);
+                ShowAiCursor(s, "type", text: text);
                 await s.TypeTextAsAiAsync(text);
                 Note($"Typed on {s.Name}");
-                await Task.Delay(300 + text.Length * 10);
+                // The student types at about 25 letters a second (at most 8 seconds): wait until it's done.
+                await Task.Delay(400 + Math.Min(text.Length * 40, 8000));
                 return ($"Typed {text.Length} characters.", null);
             }
             case "press_keys":
@@ -498,6 +518,7 @@ sealed class AiAssistant
                 var keys = Text(args["keys"]);
                 var codes = ParseKeys(keys);
                 if (codes == null) return ("I don't know those keys. Use names like enter, tab, esc, cmd+s, ctrl+c.", null);
+                ShowAiCursor(s, "type", text: keys);
                 await s.PerformAiInputAsync(KeyEvents(codes, studentIsWindows: s.IsWindows));
                 Note($"Pressed {keys} on {s.Name}");
                 await Task.Delay(500);

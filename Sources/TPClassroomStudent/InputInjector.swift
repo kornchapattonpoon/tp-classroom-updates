@@ -59,6 +59,8 @@ final class InputInjector {
     /// Types text exactly as written (letters, Thai, emoji…), whatever keyboard language is selected.
     func typeText(_ text: String) {
         let source = self.source
+        // Type at a pace people can watch (about 25 letters a second), but never take more than 8 seconds.
+        let delay = useconds_t(min(40_000, 8_000_000 / max(text.count, 1)))
         DispatchQueue.global(qos: .userInitiated).async {
             for character in text {
                 if character == "\n" || character == "\r" || character == "\t" {
@@ -74,7 +76,7 @@ final class InputInjector {
                     down.post(tap: .cghidEventTap)
                     up.post(tap: .cghidEventTap)
                 }
-                usleep(6000)
+                usleep(delay)
             }
         }
     }

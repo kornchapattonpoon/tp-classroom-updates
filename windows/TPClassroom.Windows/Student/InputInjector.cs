@@ -42,6 +42,8 @@ static class InputInjector
     public static void TypeText(string text)
     {
         var copy = text;
+        // Type at a pace people can watch (about 25 letters a second), but never take more than 8 seconds.
+        int delay = Math.Min(40, 8000 / Math.Max(1, text.Length));
         Task.Run(() =>
         {
             foreach (char c in copy)
@@ -57,7 +59,7 @@ static class InputInjector
                     UnicodeChar(c, true);
                     UnicodeChar(c, false);
                 }
-                Thread.Sleep(5);
+                Thread.Sleep(delay);
             }
         });
     }

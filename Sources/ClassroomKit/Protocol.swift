@@ -115,6 +115,8 @@ public struct Message: Codable, Sendable {
     public var sha256: String? = nil
     public var signature: String? = nil
     public var action: String? = nil
+    public var x: Double? = nil
+    public var y: Double? = nil
 
     public init(type: String) {
         self.type = type
@@ -188,6 +190,17 @@ public struct Message: Codable, Sendable {
     }
 
     /// "shutdown" or "restart". Students get a 15-second warning first.
+    /// Shows TP AI's own pointer on the student's screen. action: move, click, type or hide.
+    /// x and y are 0…1 across the main screen (like InputEvent).
+    public static func aiCursor(_ action: String, x: Double? = nil, y: Double? = nil, text: String? = nil) -> Message {
+        var message = Message(type: "aiCursor")
+        message.action = action
+        message.x = x
+        message.y = y
+        message.text = text
+        return message
+    }
+
     public static func power(_ action: String) -> Message {
         var message = Message(type: "power")
         message.action = action

@@ -297,6 +297,12 @@ final class StudentSession: ObservableObject, Identifiable {
         connection?.send(.power(action))
     }
 
+    /// Moves TP AI's own pointer on the student's screen (move, click, type or hide).
+    func showAICursor(_ action: String, x: Double? = nil, y: Double? = nil, text: String? = nil) {
+        guard isOnline else { return }
+        connection?.send(.aiCursor(action, x: x, y: y, text: text))
+    }
+
     // MARK: - Pushing updates (same version as the teacher, works offline)
 
     func sendUpdate(_ package: StudentPackage) {

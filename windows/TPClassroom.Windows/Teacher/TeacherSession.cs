@@ -350,6 +350,10 @@ sealed class TeacherSession
 
     public void Power(string action) => Send(new NetMessage { Type = "power", Action = action });
 
+    /// <summary>Moves TP AI's own pointer on the student's screen (move, click, type or hide).</summary>
+    public void AiCursor(string action, double? x = null, double? y = null, string? text = null) =>
+        Send(new NetMessage { Type = "aiCursor", Action = action, X = x, Y = y, Text = text });
+
     // MARK: Pushing updates (same version as the teacher, works offline)
 
     public async void SendUpdate(byte[] data, PackageInfo info)

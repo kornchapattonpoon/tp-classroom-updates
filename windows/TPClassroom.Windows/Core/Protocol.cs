@@ -88,6 +88,8 @@ sealed class NetMessage
     public string? Sha256 { get; set; }
     public string? Signature { get; set; }
     public string? Action { get; set; }
+    public double? X { get; set; }
+    public double? Y { get; set; }
 
     public static NetMessage Hello(string name) =>
         new() { Type = "hello", Role = "teacher", Name = name, Version = AppInfo.Version, Os = "windows" };
