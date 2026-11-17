@@ -31,6 +31,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           SIGNING_KEY: ${{ secrets.UPDATE_PRIVATE_KEY }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
         run: |
           VERSION="$(sed -n 's/^APP_VERSION="\(.*\)"/\1/p' config.env)"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -39,6 +40,9 @@ jobs:
             echo "go=false" >> "$GITHUB_OUTPUT"
           elif [ -z "$SIGNING_KEY" ]; then
             echo "::warning::Add the UPDATE_PRIVATE_KEY secret first (see the top of this file)."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$AI_API_KEY" ]; then
+            echo "::warning::Add the AI_API_KEY secret first, or TP AI won't work in this version (see the top of this file)."
             echo "go=false" >> "$GITHUB_OUTPUT"
           else
             echo "go=true" >> "$GITHUB_OUTPUT"
