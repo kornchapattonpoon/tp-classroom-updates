@@ -151,6 +151,8 @@ final class ClassroomModel: ObservableObject {
     var onOpenLive: (@MainActor (StudentSession) -> Void)?
     /// Set by the app delegate: opens the TP AI window.
     var onOpenAI: (@MainActor () -> Void)?
+    /// Set by the app delegate: shows a student's live window next to the TP AI chat while TP AI works there.
+    var onWatchLive: (@MainActor (StudentSession) -> Void)?
 
     init(updater: Updater) {
         self.updater = updater

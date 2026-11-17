@@ -89,7 +89,6 @@ Teacher → student:
 | `openUrl` | `url` (http/https only) |
 | `typeText` | `text`: typed exactly as written, any keyboard language (only while `control` is on) |
 | `power` | `action`: `shutdown` or `restart`. The student shows a 15-second warning first |
-| `aiCursor` | TP AI's own pointer on the student's screen, so everyone can see what the AI does. `action`: `move` (glides to `x`,`y`), `click` (ripple at `x`,`y`), `type` (shows "TP AI is typing" with `text`), or `hide`. `x`,`y` are 0…1 like `input`. Hides by itself after 10 seconds |
 | `updateBegin` | `platform` (`mac`/`windows`), `version`, `size`, `sha256`, `signature` |
 | `updateEnd` | |
 

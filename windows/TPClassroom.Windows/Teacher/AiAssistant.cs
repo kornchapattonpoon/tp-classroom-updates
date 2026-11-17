@@ -29,8 +29,8 @@ sealed class AiAssistant
     readonly TeacherContext context;
     readonly List<JsonNode> history = new();
     readonly Dictionary<string, Size> screenshotSizes = new();
-    /// <summary>Computers where TP AI's pointer is showing (hidden again when TP AI is done).</summary>
-    readonly List<TeacherSession> cursorSessions = new();
+    /// <summary>Computers TP AI is clicking or typing on right now (their live windows are open for the teacher).</summary>
+    readonly List<TeacherSession> aiSessions = new();
 
     public AiAssistant(TeacherContext context) => this.context = context;
 
@@ -107,15 +107,26 @@ sealed class AiAssistant
         await Task.Delay(3000);
         if (!IsWorking)
         {
-            foreach (var s in cursorSessions) s.AiCursor("hide");
-            cursorSessions.Clear();
+            foreach (var s in aiSessions) s.EndAiControl();
+            aiSessions.Clear();
         }
     }
 
-    void ShowAiCursor(TeacherSession s, string action, double? x = null, double? y = null, string? text = null)
+    /// <summary>
+    /// TP AI starts clicking or typing on a computer: its live window opens next to this chat so the teacher can
+    /// watch TP AI's pointer. The student just sees the normal "Your teacher is controlling" banner.
+    /// </summary>
+    async Task StartWorkingAsync(TeacherSession s)
     {
-        s.AiCursor(action, x, y, text);
-        if (!cursorSessions.Contains(s)) cursorSessions.Add(s);
+        if (aiSessions.Contains(s)) return;
+        aiSessions.Add(s);
+        s.BeginAiControl();
+        context.WatchLive(s);
+        if (s.AiPointer == null)
+        {
+            s.SetAiPointer(0.5, 0.5);   // starts in the middle, then glides
+            await Task.Delay(150);
+        }
     }
 
     async Task RunAsync()
@@ -491,9 +502,10 @@ sealed class AiAssistant
                     events.Add(InputEvent.Press(button, false, x, y, 2));
                 }
                 // TP AI's pointer glides there first, so everyone can see where it's going to click.
-                ShowAiCursor(s, "move", x, y);
+                await StartWorkingAsync(s);
+                s.SetAiPointer(x, y);
                 await Task.Delay(650);
-                ShowAiCursor(s, "click", x, y);
+                s.SetAiPointer(x, y, click: true);
                 await s.PerformAiInputAsync(events);
                 Note($"Clicked on {s.Name}");
                 await Task.Delay(700);
@@ -504,7 +516,8 @@ sealed class AiAssistant
                 var s = ResolveOne(args["computer"]);
                 if (s == null || !s.IsOnline) return ("That computer isn't online.", null);
                 var text = Text(args["text"]);
-                ShowAiCursor(s, "type", text: text);
+                await StartWorkingAsync(s);
+                s.SetAiPointer(typing: text);
                 await s.TypeTextAsAiAsync(text);
                 Note($"Typed on {s.Name}");
                 // The student types at about 25 letters a second (at most 8 seconds): wait until it's done.
@@ -518,7 +531,8 @@ sealed class AiAssistant
                 var keys = Text(args["keys"]);
                 var codes = ParseKeys(keys);
                 if (codes == null) return ("I don't know those keys. Use names like enter, tab, esc, cmd+s, ctrl+c.", null);
-                ShowAiCursor(s, "type", text: keys);
+                await StartWorkingAsync(s);
+                s.SetAiPointer(typing: keys);
                 await s.PerformAiInputAsync(KeyEvents(codes, studentIsWindows: s.IsWindows));
                 Note($"Pressed {keys} on {s.Name}");
                 await Task.Delay(500);

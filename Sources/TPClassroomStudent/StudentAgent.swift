@@ -63,7 +63,6 @@ final class StudentAgent: ObservableObject {
     private let lockScreen: LockScreenController
     private let banner: BannerController
     private let messages: MessageWindowController
-    private let aiCursor = AICursorOverlay()
     private let setupWindow: SetupWindowController
 
     private var activeCapture: StreamSettings?
@@ -326,9 +325,6 @@ final class StudentAgent: ObservableObject {
         case "typeText":
             guard client.controlEnabled, let text = message.text else { return }
             injector.typeText(text)
-
-        case "aiCursor":
-            aiCursor.handle(action: message.action ?? "move", x: message.x, y: message.y, text: message.text)
 
         case "power":
             powerOff(restart: message.action == "restart", by: client.name)

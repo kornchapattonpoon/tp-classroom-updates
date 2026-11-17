@@ -322,6 +322,24 @@ sealed class TeacherContext : ApplicationContext
         mainForm.Activate();
     }
 
+    /// <summary>TP AI is about to click or type on a student: show that screen next to the TP AI chat.</summary>
+    public void WatchLive(TeacherSession session)
+    {
+        if (mainForm == null || mainForm.IsDisposed) mainForm = new MainForm(this);
+        var (live, isNew) = mainForm.OpenLive(session, activate: false);
+        if (aiForm == null || aiForm.IsDisposed || !aiForm.Visible) return;
+        if (isNew)
+        {
+            var area = Screen.FromControl(aiForm).WorkingArea;
+            int aiWidth = Math.Min(Math.Max(aiForm.Width, 420), area.Width * 2 / 5);
+            aiForm.WindowState = FormWindowState.Normal;
+            live.WindowState = FormWindowState.Normal;
+            aiForm.Bounds = new Rectangle(area.Right - aiWidth, area.Top, aiWidth, area.Height);
+            live.Bounds = new Rectangle(area.Left, area.Top, area.Width - aiWidth, area.Height);
+        }
+        aiForm.Activate();   // keep typing in the TP AI chat
+    }
+
     public void ShowAi()
     {
         if (aiForm == null || aiForm.IsDisposed) aiForm = new AiForm(Ai);

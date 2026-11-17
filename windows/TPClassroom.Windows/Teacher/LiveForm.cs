@@ -64,6 +64,7 @@ sealed class LiveForm : Form
         view.Input += session.SendInput;
         session.FrameChanged += OnFrame;
         session.Changed += OnChanged;
+        session.AiPointerChanged += OnAiPointer;
         session.OpenLiveView();
         OnFrame();
         OnChanged();
@@ -74,11 +75,18 @@ sealed class LiveForm : Form
         if (!IsDisposed) view.Frame = session.Frame;
     }
 
+    void OnAiPointer()
+    {
+        if (!IsDisposed) view.SetAiPointer(session.AiPointer);
+    }
+
     void OnChanged()
     {
         if (IsDisposed) return;
         Text = session.Name;
-        stateLabel.Text = session.ControlEnabled ? "  Controlling — clicks and keys go to this computer"
+        stateLabel.ForeColor = session.AiControlling ? Color.MediumPurple : SystemColors.ControlText;
+        stateLabel.Text = session.AiControlling ? "  TP AI is controlling this computer"
+                        : session.ControlEnabled ? "  Controlling — clicks and keys go to this computer"
                         : session.IsOnline ? "  Viewing" : "  " + (session.Warning ?? "Disconnected. Reconnecting…");
         lockButton.Text = session.IsLocked ? "Unlock" : "Lock";
         controlButton.Enabled = session.IsOnline;
@@ -90,6 +98,7 @@ sealed class LiveForm : Form
     {
         session.FrameChanged -= OnFrame;
         session.Changed -= OnChanged;
+        session.AiPointerChanged -= OnAiPointer;
         view.Input -= session.SendInput;
         session.CloseLiveView();
         base.OnFormClosed(e);
@@ -102,12 +111,66 @@ sealed class RemoteView : Control
     Image? frame;
     long lastMoveTicks;
 
+    // TP AI's pointer (0…1 across the student's screen), animated between positions.
+    const double AiMoveMs = 550, AiRippleMs = 600;
+    readonly System.Windows.Forms.Timer aiTimer = new() { Interval = 15 };
+    bool aiShown;
+    PointF aiFrom, aiTo, aiNow;
+    long aiMoveStart, aiClickStart = -1;
+    int aiClicks;
+    string? aiTyping;
+
     public RemoteView()
     {
         SetStyle(ControlStyles.AllPaintingInWmPaint | ControlStyles.OptimizedDoubleBuffer |
                  ControlStyles.UserPaint | ControlStyles.Selectable | ControlStyles.ResizeRedraw, true);
         BackColor = Color.Black;
         TabStop = true;
+        aiTimer.Tick += (_, _) => StepAiPointer();
+    }
+
+    public void SetAiPointer(TeacherSession.AiPointerState? pointer)
+    {
+        long now = Environment.TickCount64;
+        if (pointer == null)
+        {
+            aiShown = false;
+            aiTimer.Stop();
+            Invalidate();
+            return;
+        }
+        var target = new PointF((float)pointer.X, (float)pointer.Y);
+        if (!aiShown)
+        {
+            aiNow = aiFrom = aiTo = target;
+            aiClicks = pointer.Clicks;
+            aiShown = true;
+        }
+        else if (target != aiTo)
+        {
+            aiFrom = aiNow;
+            aiTo = target;
+            aiMoveStart = now;
+        }
+        if (pointer.Clicks != aiClicks)
+        {
+            aiClicks = pointer.Clicks;
+            aiClickStart = now;
+        }
+        aiTyping = pointer.Typing;
+        aiTimer.Start();
+        Invalidate();
+    }
+
+    void StepAiPointer()
+    {
+        long now = Environment.TickCount64;
+        double t = Math.Min(1, (now - aiMoveStart) / AiMoveMs);
+        double eased = t < 0.5 ? 2 * t * t : 1 - Math.Pow(-2 * t + 2, 2) / 2;
+        aiNow = new PointF((float)(aiFrom.X + (aiTo.X - aiFrom.X) * eased), (float)(aiFrom.Y + (aiTo.Y - aiFrom.Y) * eased));
+        if (aiClickStart >= 0 && now - aiClickStart >= AiRippleMs) aiClickStart = -1;
+        Invalidate();
+        if (t >= 1 && aiClickStart < 0) aiTimer.Stop();
     }
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
@@ -138,7 +201,14 @@ sealed class RemoteView : Control
         try
         {
             e.Graphics.InterpolationMode = InterpolationMode.HighQualityBilinear;
-            e.Graphics.DrawImage(image, ImageRect(image));
+            var rect = ImageRect(image);
+            e.Graphics.DrawImage(image, rect);
+            if (aiShown)
+            {
+                var spot = new PointF(rect.Left + aiNow.X * rect.Width, rect.Top + aiNow.Y * rect.Height);
+                double ripple = aiClickStart < 0 ? -1 : Math.Min(1, (Environment.TickCount64 - aiClickStart) / AiRippleMs);
+                AiPointerPainter.Paint(e.Graphics, spot, aiTyping, ripple, DeviceDpi / 96f);
+            }
         }
         catch (ArgumentException)
         {

@@ -147,12 +147,14 @@ sealed class MainForm : Form
         return menu;
     }
 
-    void OpenLive(TeacherSession session)
+    /// <summary>Opens (or shows) a student's live window. Returns it, and whether it was just opened.</summary>
+    public (LiveForm Form, bool IsNew) OpenLive(TeacherSession session, bool activate = true)
     {
         if (liveForms.TryGetValue(session, out var existing) && !existing.IsDisposed)
         {
-            existing.Activate();
-            return;
+            if (activate) existing.Activate();
+            else if (existing.WindowState == FormWindowState.Minimized) existing.WindowState = FormWindowState.Normal;
+            return (existing, false);
         }
         var form = new LiveForm(session, context);
         liveForms[session] = form;
@@ -164,6 +166,7 @@ sealed class MainForm : Form
             if (context.LiveSessions.Count == 0 && context.Updater.HasPendingUpdate) _ = context.Updater.InstallIfAllowedAsync();
         };
         form.Show();
+        return (form, true);
     }
 
     void RefreshStatus()

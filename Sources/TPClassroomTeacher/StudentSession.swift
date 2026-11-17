@@ -45,6 +45,18 @@ final class StudentSession: ObservableObject, Identifiable {
     @Published var notice: String? = nil
     @Published private(set) var updateProgress: Double? = nil
 
+    /// TP AI's pointer, drawn over this student's screen in the teacher's live window
+    /// (not on the student's screen: students just see "Your teacher is controlling").
+    struct AIPointer: Equatable {
+        var x = 0.5
+        var y = 0.5
+        var typing: String? = nil
+        var clicks = 0
+    }
+    @Published var aiPointer: AIPointer? = nil
+    @Published private(set) var aiControlling = false
+    private var aiTurnedControlOn = false
+
     private(set) var host: String
     private(set) var port: UInt16
     private(set) var lastSeen: Date
@@ -84,6 +96,7 @@ final class StudentSession: ObservableObject, Identifiable {
         var parts: [String] = []
         if !user.isEmpty { parts.append(user) }
         if !version.isEmpty { parts.append("v" + version) }
+        if aiControlling { parts.append("TP AI is controlling") }
         switch status {
         case .online: break
         case .connecting: parts.append("Connecting…")
@@ -276,31 +289,41 @@ final class StudentSession: ObservableObject, Identifiable {
 
     /// Sends mouse/keyboard events even if Control is off: Control is switched on just for
     /// these events (the student sees the "controlling" banner), then back off.
+    /// TP AI is working on this computer. Control stays on until it's done, so the student sees one steady
+    /// "Your teacher is controlling" banner, exactly like when the teacher turns on Control.
+    func beginAIControl() {
+        guard !aiControlling else { return }
+        aiControlling = true
+        aiTurnedControlOn = !controlEnabled
+    }
+
+    func endAIControl() {
+        guard aiControlling else { return }
+        aiControlling = false
+        aiPointer = nil
+        if aiTurnedControlOn && !controlEnabled && isOnline { connection?.send(.control(false)) }
+        aiTurnedControlOn = false
+    }
+
     func performAIInput(_ events: [InputEvent]) {
         guard isOnline, let current = connection else { return }
-        let wasOn = controlEnabled
-        if !wasOn { current.send(.control(true)) }
+        let switchBackOff = !controlEnabled && !aiControlling
+        if !controlEnabled { current.send(.control(true)) }
         for event in events { current.send(.remoteInput(event)) }
-        if !wasOn { current.send(.control(false)) }
+        if switchBackOff { current.send(.control(false)) }
     }
 
     func typeTextAsAI(_ text: String) {
         guard isOnline, let current = connection else { return }
-        let wasOn = controlEnabled
-        if !wasOn { current.send(.control(true)) }
+        let switchBackOff = !controlEnabled && !aiControlling
+        if !controlEnabled { current.send(.control(true)) }
         current.send(.typeText(text))
-        if !wasOn { current.send(.control(false)) }
+        if switchBackOff { current.send(.control(false)) }
     }
 
     func power(_ action: String) {
         guard isOnline else { return }
         connection?.send(.power(action))
-    }
-
-    /// Moves TP AI's own pointer on the student's screen (move, click, type or hide).
-    func showAICursor(_ action: String, x: Double? = nil, y: Double? = nil, text: String? = nil) {
-        guard isOnline else { return }
-        connection?.send(.aiCursor(action, x: x, y: y, text: text))
     }
 
     // MARK: - Pushing updates (same version as the teacher, works offline)

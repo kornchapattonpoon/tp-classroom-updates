@@ -45,7 +45,6 @@ sealed class StudentContext : ApplicationContext
     readonly Icon viewedIcon;
     readonly LockScreen lockScreen = new();
     readonly BannerForm banner = new();
-    readonly AiCursorForm aiCursor = new();
     readonly ScreenCapture capture = new();
     readonly CancellationTokenSource stopping = new();
     readonly System.Windows.Forms.Timer beaconTimer = new() { Interval = 3000 };
@@ -283,9 +282,6 @@ sealed class StudentContext : ApplicationContext
                 break;
             case "typeText":
                 if (client.ControlEnabled && message.Text != null) InputInjector.TypeText(message.Text);
-                break;
-            case "aiCursor":
-                aiCursor.Handle(message.Action ?? "move", message.X, message.Y, message.Text);
                 break;
             case "power":
                 PowerOff(message.Action == "restart", client.Name);

@@ -75,6 +75,21 @@ sealed class TeacherSession
 
     /// <summary>Name, status or anything else shown on the tile changed.</summary>
     public event Action? Changed;
+
+    /// <summary>
+    /// TP AI's pointer, drawn over this student's screen in the teacher's live window
+    /// (not on the student's screen: students just see "Your teacher is controlling").
+    /// </summary>
+    public sealed class AiPointerState
+    {
+        public double X = 0.5, Y = 0.5;
+        public string? Typing;
+        public int Clicks;
+    }
+    public AiPointerState? AiPointer { get; private set; }
+    public bool AiControlling { get; private set; }
+    bool aiTurnedControlOn;
+    public event Action? AiPointerChanged;
     /// <summary>A new screen picture arrived.</summary>
     public event Action? FrameChanged;
 
@@ -90,6 +105,7 @@ sealed class TeacherSession
             var parts = new List<string>();
             if (!string.IsNullOrEmpty(User)) parts.Add(User);
             if (!string.IsNullOrEmpty(Version)) parts.Add("v" + Version);
+            if (AiControlling) parts.Add("TP AI is controlling");
             if (UpdateProgress is double progress) parts.Add($"Updating {progress:P0}");
             else if (Status == SessionStatus.Connecting) parts.Add("Connecting…");
             else if (Status == SessionStatus.Offline) parts.Add("Offline (remembered)");
@@ -332,27 +348,58 @@ sealed class TeacherSession
     {
         var current = connection;
         if (!IsOnline || current == null) return;
-        bool wasOn = ControlEnabled;
-        if (!wasOn) await current.SendAsync(new NetMessage { Type = "control", Enabled = true });
+        bool switchBackOff = !ControlEnabled && !AiControlling;
+        if (!ControlEnabled) await current.SendAsync(new NetMessage { Type = "control", Enabled = true });
         foreach (var input in events) await current.SendAsync(new NetMessage { Type = "input", Input = input });
-        if (!wasOn) await current.SendAsync(new NetMessage { Type = "control", Enabled = false });
+        if (switchBackOff) await current.SendAsync(new NetMessage { Type = "control", Enabled = false });
     }
 
     public async Task TypeTextAsAiAsync(string text)
     {
         var current = connection;
         if (!IsOnline || current == null) return;
-        bool wasOn = ControlEnabled;
-        if (!wasOn) await current.SendAsync(new NetMessage { Type = "control", Enabled = true });
+        bool switchBackOff = !ControlEnabled && !AiControlling;
+        if (!ControlEnabled) await current.SendAsync(new NetMessage { Type = "control", Enabled = true });
         await current.SendAsync(new NetMessage { Type = "typeText", Text = text });
-        if (!wasOn) await current.SendAsync(new NetMessage { Type = "control", Enabled = false });
+        if (switchBackOff) await current.SendAsync(new NetMessage { Type = "control", Enabled = false });
+    }
+
+    /// <summary>
+    /// TP AI is working on this computer. Control stays on until it's done, so the student sees one steady
+    /// "Your teacher is controlling" banner, exactly like when the teacher turns on Control.
+    /// </summary>
+    public void BeginAiControl()
+    {
+        if (AiControlling) return;
+        AiControlling = true;
+        aiTurnedControlOn = !ControlEnabled;
+        RaiseChanged();
+    }
+
+    public void EndAiControl()
+    {
+        if (!AiControlling) return;
+        AiControlling = false;
+        AiPointer = null;
+        if (aiTurnedControlOn && !ControlEnabled && IsOnline) Send(new NetMessage { Type = "control", Enabled = false });
+        aiTurnedControlOn = false;
+        AiPointerChanged?.Invoke();
+        RaiseChanged();
+    }
+
+    /// <summary>Moves TP AI's pointer (x/y null = stay), shows what it types, or adds a click ripple.</summary>
+    public void SetAiPointer(double? x = null, double? y = null, string? typing = null, bool click = false)
+    {
+        var pointer = AiPointer ?? new AiPointerState();
+        if (x != null) pointer.X = x.Value;
+        if (y != null) pointer.Y = y.Value;
+        pointer.Typing = typing;
+        if (click) pointer.Clicks++;
+        AiPointer = pointer;
+        AiPointerChanged?.Invoke();
     }
 
     public void Power(string action) => Send(new NetMessage { Type = "power", Action = action });
-
-    /// <summary>Moves TP AI's own pointer on the student's screen (move, click, type or hide).</summary>
-    public void AiCursor(string action, double? x = null, double? y = null, string? text = null) =>
-        Send(new NetMessage { Type = "aiCursor", Action = action, X = x, Y = y, Text = text });
 
     // MARK: Pushing updates (same version as the teacher, works offline)
 

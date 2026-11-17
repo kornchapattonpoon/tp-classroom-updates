@@ -34,8 +34,6 @@ static class Json
 sealed class InputEvent
 {
     public string Kind { get; set; } = "";
-    public double? X { get; set; }
-    public double? Y { get; set; }
     public int? Button { get; set; }
     public int? Clicks { get; set; }
     public double? Dx { get; set; }

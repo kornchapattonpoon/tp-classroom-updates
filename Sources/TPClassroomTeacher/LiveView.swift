@@ -17,6 +17,10 @@ struct LiveSessionView: View {
                     RemoteScreenView(image: frame, controlEnabled: session.controlEnabled) { event in
                         session.sendInput(event)
                     }
+                    if let pointer = session.aiPointer {
+                        AIPointerOverlay(pointer: pointer, imageSize: CGSize(width: frame.width, height: frame.height))
+                            .allowsHitTesting(false)
+                    }
                 } else {
                     ProgressView("Waiting for the screen…")
                         .foregroundStyle(Color.white)
@@ -34,7 +38,16 @@ struct LiveSessionView: View {
                 }
             }
             .overlay(alignment: .top) {
-                if session.controlEnabled {
+                if session.aiControlling {
+                    Label("TP AI is controlling this computer", systemImage: "sparkles")
+                        .font(.caption.bold())
+                        .foregroundStyle(Color.white)
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 5)
+                        .background(Capsule().fill(AIPointerOverlay.gradient))
+                        .padding(8)
+                        .allowsHitTesting(false)
+                } else if session.controlEnabled {
                     Text("You're controlling this computer. Turn off Control or close this window to stop.")
                         .font(.caption.bold())
                         .foregroundStyle(Color.white)
@@ -56,7 +69,8 @@ struct LiveSessionView: View {
             Image(systemName: session.isWindows ? "pc" : "desktopcomputer")
             VStack(alignment: .leading, spacing: 2) {
                 Text(session.name).font(.headline)
-                Text(session.controlEnabled ? "Controlling" : (session.isOnline ? "Viewing" : "Offline"))
+                Text(session.aiControlling ? "TP AI is controlling" :
+                        session.controlEnabled ? "Controlling" : (session.isOnline ? "Viewing" : "Offline"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }

@@ -80,6 +80,7 @@ final class TeacherAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         assistant = AIAssistant(model: model)
         model.onOpenLive = { [weak self] session in self?.openLiveWindow(for: session) }
         model.onOpenAI = { [weak self] in self?.showAIWindow() }
+        model.onWatchLive = { [weak self] session in self?.watchLiveForAI(session) }
         // Don't restart in the middle of helping a student.
         updater.shouldDeferInstall = { [weak self] in
             !(self?.liveWindows.isEmpty ?? true)
@@ -232,6 +233,22 @@ final class TeacherAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
         NSApp.setActivationPolicy(.regular)
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
+    }
+
+    /// TP AI is about to click or type on a student: show that screen next to the TP AI chat.
+    func watchLiveForAI(_ session: StudentSession) {
+        let isNew = !liveWindows.contains(where: { $0.session === session })
+        openLiveWindow(for: session)
+        guard let ai = aiWindow, ai.isVisible else { return }
+        if isNew, let live = liveWindows.first(where: { $0.session === session })?.window,
+           let screen = ai.screen ?? NSScreen.main {
+            let area = screen.visibleFrame.insetBy(dx: 10, dy: 10)
+            let aiWidth = min(max(ai.frame.width, 380), area.width * 0.4)
+            ai.setFrame(NSRect(x: area.maxX - aiWidth, y: area.minY, width: aiWidth, height: area.height), display: true)
+            live.setFrame(NSRect(x: area.minX, y: area.minY, width: area.width - aiWidth - 10, height: area.height),
+                          display: true)
+        }
+        ai.makeKeyAndOrderFront(nil)   // keep typing in the TP AI chat
     }
 
     func showSettings() {

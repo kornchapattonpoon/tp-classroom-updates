@@ -26,8 +26,8 @@ final class AIAssistant: ObservableObject {
     private weak var model: ClassroomModel?
     private var history: [[String: Any]] = []
     private var screenshotSizes: [String: CGSize] = [:]
-    /// Computers where TP AI's pointer is showing (hidden again when TP AI is done).
-    private var cursorSessions: [StudentSession] = []
+    /// Computers TP AI is clicking or typing on right now (their live windows are open for the teacher).
+    private var aiSessions: [StudentSession] = []
     private static let maxSteps = 20
     nonisolated static let keyOverrideDefaultsKey = "aiKeyOverride"
 
@@ -94,21 +94,28 @@ final class AIAssistant: ObservableObject {
         Task {
             await self.run()
             self.isWorking = false
-            await self.hideAICursors()
+            await self.finishWorking()
         }
     }
 
-    private func showAICursor(on session: StudentSession, _ action: String,
-                              x: Double? = nil, y: Double? = nil, text: String? = nil) {
-        session.showAICursor(action, x: x, y: y, text: text)
-        if !cursorSessions.contains(where: { $0 === session }) { cursorSessions.append(session) }
+    /// TP AI starts clicking or typing on a computer: its live window opens next to this chat so the teacher
+    /// can watch TP AI's pointer. The student just sees the normal "Your teacher is controlling" banner.
+    private func startWorking(on session: StudentSession) async {
+        guard !aiSessions.contains(where: { $0 === session }) else { return }
+        aiSessions.append(session)
+        session.beginAIControl()
+        model?.onWatchLive?(session)
+        if session.aiPointer == nil {
+            session.aiPointer = StudentSession.AIPointer()   // starts in the middle, then glides
+            try? await Task.sleep(nanoseconds: 150_000_000)
+        }
     }
 
-    private func hideAICursors() async {
+    private func finishWorking() async {
         try? await Task.sleep(nanoseconds: 3_000_000_000)
         guard !isWorking else { return }
-        for session in cursorSessions { session.showAICursor("hide") }
-        cursorSessions.removeAll()
+        for session in aiSessions { session.endAIControl() }
+        aiSessions.removeAll()
     }
 
     private func run() async {
@@ -388,9 +395,12 @@ final class AIAssistant: ObservableObject {
                            .press(button, down: false, x: x, y: y, clicks: 2)]
             }
             // TP AI's pointer glides there first, so everyone can see where it's going to click.
-            showAICursor(on: session, "move", x: x, y: y)
+            await startWorking(on: session)
+            session.aiPointer?.typing = nil
+            session.aiPointer?.x = x
+            session.aiPointer?.y = y
             try? await Task.sleep(nanoseconds: 650_000_000)
-            showAICursor(on: session, "click", x: x, y: y)
+            session.aiPointer?.clicks += 1
             session.performAIInput(events)
             note("Clicked on \(session.name)")
             try? await Task.sleep(nanoseconds: 700_000_000)
@@ -401,7 +411,8 @@ final class AIAssistant: ObservableObject {
                 return ToolResult(text: "That computer isn't online.")
             }
             let text = args["text"] as? String ?? ""
-            showAICursor(on: session, "type", text: text)
+            await startWorking(on: session)
+            session.aiPointer?.typing = text
             session.typeTextAsAI(text)
             note("Typed on \(session.name)")
             // The student types at about 25 letters a second (at most 8 seconds): wait until it's done.
@@ -416,7 +427,8 @@ final class AIAssistant: ObservableObject {
             guard let codes = AIToolbox.parseKeys(args["keys"] as? String ?? "") else {
                 return ToolResult(text: "I don't know those keys. Use names like enter, tab, esc, cmd+s, ctrl+c.")
             }
-            showAICursor(on: session, "type", text: args["keys"] as? String ?? "")
+            await startWorking(on: session)
+            session.aiPointer?.typing = args["keys"] as? String ?? ""
             session.performAIInput(AIToolbox.keyEvents(codes, studentIsMac: !session.isWindows))
             note("Pressed \(args["keys"] as? String ?? "") on \(session.name)")
             try? await Task.sleep(nanoseconds: 500_000_000)
