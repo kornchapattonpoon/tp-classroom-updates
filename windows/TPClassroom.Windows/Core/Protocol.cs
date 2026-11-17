@@ -34,6 +34,8 @@ static class Json
 sealed class InputEvent
 {
     public string Kind { get; set; } = "";
+    public double? X { get; set; }
+    public double? Y { get; set; }
     public int? Button { get; set; }
     public int? Clicks { get; set; }
     public double? Dx { get; set; }
@@ -86,8 +88,6 @@ sealed class NetMessage
     public string? Sha256 { get; set; }
     public string? Signature { get; set; }
     public string? Action { get; set; }
-    public double? X { get; set; }
-    public double? Y { get; set; }
 
     public static NetMessage Hello(string name) =>
         new() { Type = "hello", Role = "teacher", Name = name, Version = AppInfo.Version, Os = "windows" };
