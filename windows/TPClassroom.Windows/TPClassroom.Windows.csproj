@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    TP Classroom for Windows: one TPClassroom.exe that runs as the teacher app or the student app.
+    Built on your Mac by ../../scripts/build.sh (it downloads the .NET SDK into ~/.dotnet by itself).
+    The result, TP-Classroom-Setup-x.y.z.exe, installs itself when opened on a Windows PC.
+  -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <Nullable>enable</Nullable>
+    <NoWarn>$(NoWarn);WFO1000</NoWarn>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>TPClassroom</RootNamespace>
+    <AssemblyName>TPClassroom</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <Product>TP Classroom</Product>
+    <Version>1.0.0</Version>
+    <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+
+    <!-- Filled in by scripts/build.sh -->
+    <UpdateFeedUrl></UpdateFeedUrl>
+    <UpdatePublicKey></UpdatePublicKey>
+    <AiKeyX></AiKeyX>
+    <AiModel>qwen/qwen3.8-27b</AiModel>
+    <AiBaseUrl>https://api.groq.com/openai/v1</AiBaseUrl>
+    <MacStudentPackageDir></MacStudentPackageDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AssemblyMetadata Include="UpdateFeedUrl" Value="$(UpdateFeedUrl)" />
+    <AssemblyMetadata Include="UpdatePublicKey" Value="$(UpdatePublicKey)" />
+    <AssemblyMetadata Include="AiKeyX" Value="$(AiKeyX)" />
+    <AssemblyMetadata Include="AiModel" Value="$(AiModel)" />
+    <AssemblyMetadata Include="AiBaseUrl" Value="$(AiBaseUrl)" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\teacher.ico" LogicalName="teacher.ico" />
+    <EmbeddedResource Include="Assets\student.ico" LogicalName="student.ico" />
+    <EmbeddedResource Include="Assets\student-viewed.ico" LogicalName="student-viewed.ico" />
+  </ItemGroup>
+
+  <!-- The Mac student app, so a Windows teacher can update Mac students (same version). -->
+  <ItemGroup Condition="'$(MacStudentPackageDir)' != '' And Exists('$(MacStudentPackageDir)/student-mac.zip') And Exists('$(MacStudentPackageDir)/student-mac.zip.json')">
+    <EmbeddedResource Include="$(MacStudentPackageDir)/student-mac.zip" LogicalName="student-mac.zip" />
+    <EmbeddedResource Include="$(MacStudentPackageDir)/student-mac.zip.json" LogicalName="student-mac.zip.json" />
+  </ItemGroup>
+
+</Project>

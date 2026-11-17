@@ -1,0 +1,68 @@
+# Builds TP Classroom (Mac + Windows) on GitHub's Macs and publishes it as a release.
+# It runs on every push to main, but only publishes when APP_VERSION in config.env is new.
+# Installed teacher apps then update themselves and pass the same version to every student.
+#
+# One-time setup (Settings -> Secrets and variables -> Actions -> New repository secret):
+#   UPDATE_PRIVATE_KEY  the contents of ~/.tpclassroom/update_private_key from the Mac that made it
+#   AI_API_KEY          the TP AI key that gets built into the teacher apps
+name: Build and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: macos-15
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Is this a new version?
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SIGNING_KEY: ${{ secrets.UPDATE_PRIVATE_KEY }}
+        run: |
+          VERSION="$(sed -n 's/^APP_VERSION="\(.*\)"/\1/p' config.env)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "::notice::Version $VERSION is already published. Raise APP_VERSION in config.env to publish an update."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          elif [ -z "$SIGNING_KEY" ]; then
+            echo "::warning::Add the UPDATE_PRIVATE_KEY secret first (see the top of this file)."
+            echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-dotnet@v4
+        if: steps.check.outputs.go == 'true'
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build and publish ${{ steps.check.outputs.version }}
+        if: steps.check.outputs.go == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AI_API_KEY: ${{ secrets.AI_API_KEY }}
+          SIGNING_KEY: ${{ secrets.UPDATE_PRIVATE_KEY }}
+        run: |
+          mkdir -p ~/.tpclassroom
+          chmod 700 ~/.tpclassroom
+          printf '%s' "$SIGNING_KEY" > ~/.tpclassroom/update_private_key
+          chmod 600 ~/.tpclassroom/update_private_key
+          NOTES="$(git log -1 --pretty=%s)"
+          PUBLISH=1 ./scripts/release.sh "$NOTES"
+
+      - name: Remove the signing key
+        if: always()
+        run: rm -f ~/.tpclassroom/update_private_key
