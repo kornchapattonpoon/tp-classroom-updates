@@ -92,6 +92,12 @@ struct AIView: View {
 struct AILineView: View {
     let line: AIAssistant.Line
 
+    /// Shows **bold** and *italic* from TP AI as real formatting instead of stars.
+    static func formatted(_ text: String) -> AttributedString {
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        return (try? AttributedString(markdown: text, options: options)) ?? AttributedString(text)
+    }
+
     var body: some View {
         switch line.kind {
         case .teacher:
@@ -104,7 +110,7 @@ struct AILineView: View {
                     .textSelection(.enabled)
             }
         case .assistant:
-            Text(line.text)
+            Text(Self.formatted(line.text))
                 .padding(.horizontal, 12)
                 .padding(.vertical, 8)
                 .background(RoundedRectangle(cornerRadius: 12).fill(Color.secondary.opacity(0.12)))

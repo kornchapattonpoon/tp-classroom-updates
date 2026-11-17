@@ -174,6 +174,10 @@ final class TeacherAppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegat
 
     func showMainWindow() {
         guard let model, let updater else { return }
+        // Opening the window is a good moment to look for a new version (at most every 5 minutes).
+        if updater.lastChecked.map({ Date().timeIntervalSince($0) > 300 }) ?? true {
+            Task { await updater.check() }
+        }
         NSApp.setActivationPolicy(.regular)
         if mainWindow == nil {
             let root = ContentView()

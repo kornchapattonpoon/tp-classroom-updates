@@ -23,7 +23,7 @@ sealed class FeedAsset
 /// </summary>
 sealed class Updater
 {
-    readonly System.Windows.Forms.Timer checkTimer = new() { Interval = 2 * 60 * 60 * 1000 };
+    readonly System.Windows.Forms.Timer checkTimer = new() { Interval = 30 * 60 * 1000 };
     readonly System.Windows.Forms.Timer retryTimer = new() { Interval = 10 * 60 * 1000 };
     UpdateFeed? pending;
     bool busy;
@@ -47,6 +47,17 @@ sealed class Updater
         checkTimer.Start();
         retryTimer.Start();
         _ = CheckAsync(false);
+        // Timers pause while the PC sleeps, so also check soon after it wakes up (once Wi-Fi is back).
+        var ui = SynchronizationContext.Current;
+        Microsoft.Win32.SystemEvents.PowerModeChanged += (_, e) =>
+        {
+            if (e.Mode != Microsoft.Win32.PowerModes.Resume) return;
+            ui?.Post(async _ =>
+            {
+                await Task.Delay(TimeSpan.FromSeconds(20));
+                await CheckAsync(false);
+            }, null);
+        };
     }
 
     void SetStatus(string text)

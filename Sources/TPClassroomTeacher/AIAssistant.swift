@@ -416,7 +416,7 @@ enum AIToolbox {
     - To click or type on one computer: call look_at_screen first, click using pixel coordinates from that \
     screenshot, then look again to check that it worked.
     - Keyboard shortcuts depend on the student computer's system: cmd on a Mac, ctrl on Windows.
-    - Reply briefly, in the same language the teacher writes in, and say what you did.
+    - Reply briefly in plain text (no Markdown), in the same language the teacher writes in, and say what you did.
     """
 
     static func tool(_ name: String, _ description: String,

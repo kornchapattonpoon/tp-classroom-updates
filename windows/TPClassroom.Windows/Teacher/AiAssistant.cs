@@ -168,8 +168,13 @@ sealed class AiAssistant
         }
     }
 
-    static string Clean(string text) =>
-        Regex.Replace(text, "<think>[\\s\\S]*?</think>", "").Trim();
+    static string Clean(string text)
+    {
+        text = Regex.Replace(text, "<think>[\\s\\S]*?</think>", "");
+        text = text.Replace("**", "").Replace("__", "");                  // no Markdown bold in the plain chat box
+        text = Regex.Replace(text, "(?m)^#{1,6}\\s*", "");                // or headings
+        return text.Trim();
+    }
 
     /// <summary>Free AI plans only allow a little text per minute: keep just the last few requests.</summary>
     void TrimHistory(int keepTurns = 4)
@@ -257,7 +262,7 @@ sealed class AiAssistant
         "- Prefer the direct tools (lock_screens, unlock_screens, send_message, open_website, power) over clicking.\n" +
         "- To click or type on one computer: call look_at_screen first, click using pixel coordinates from that screenshot, then look again to check that it worked.\n" +
         "- Keyboard shortcuts depend on the student computer's system: cmd on a Mac, ctrl on Windows.\n" +
-        "- Reply briefly, in the same language the teacher writes in, and say what you did.";
+        "- Reply briefly in plain text (no Markdown), in the same language the teacher writes in, and say what you did.";
 
     static JsonObject Tool(string name, string description, JsonObject properties, params string[] required)
     {

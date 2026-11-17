@@ -69,9 +69,17 @@ public final class Updater: ObservableObject {
     }
 
     /// Checks now and every 2 hours. Offline is fine: it just tries again later.
-    public func startAutomaticChecks(every interval: TimeInterval = 2 * 3600) {
+    public func startAutomaticChecks(every interval: TimeInterval = 30 * 60) {
         guard timer == nil else { return }
         Task { await self.check() }
+        // Timers pause while the Mac sleeps, so also check soon after it wakes up (once Wi-Fi is back).
+        NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification,
+                                                          object: nil, queue: .main) { [weak self] _ in
+            Task { @MainActor in
+                try? await Task.sleep(nanoseconds: 20_000_000_000)
+                await self?.check()
+            }
+        }
         timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
             Task { @MainActor in await self?.check() }
         }
