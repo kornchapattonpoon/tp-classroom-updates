@@ -143,6 +143,12 @@ sealed class TeacherSession
             nextAttempt = DateTime.MinValue;
             if (!IsOnline) Disconnect(keepStatus: true);
         }
+        if (!IsOnline)
+        {
+            // It's announcing itself, so it's switched on: connect now instead of waiting for the slow retry schedule.
+            nextAttempt = DateTime.MinValue;
+            retryDelay = 2;
+        }
         LastSeen = DateTime.Now;
         RaiseChanged();
     }

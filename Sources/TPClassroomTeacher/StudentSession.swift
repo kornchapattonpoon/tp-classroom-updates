@@ -132,6 +132,11 @@ final class StudentSession: ObservableObject, Identifiable {
             nextAttempt = .distantPast
             if status != .online { disconnect(keepStatus: true) }
         }
+        if status != .online {
+            // It's announcing itself, so it's switched on: connect now instead of waiting for the slow retry schedule.
+            nextAttempt = .distantPast
+            retryDelay = 2
+        }
         lastSeen = Date()
     }
 
